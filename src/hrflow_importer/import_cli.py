@@ -36,7 +36,14 @@ def local(max_workers: int = typer.Option(None)):
     section_name = "Worker Parameters"
     seperator = "=" * ((100 - len(section_name))//2)
     typer.echo(seperator + section_name + seperator)
-    max_workers = int(typer.prompt("Max workers "))
+    multiprocess = int(typer.prompt("Use multiprocessing [1: yes, 0: no]"))
+    if multiprocess:
+        sleep_period = 6 #default value
+        typer.echo("Proceeding with multiprocessing.")
+    else:
+        typer.echo("Proceeding without multiprocessing. Select sleep time between API calls.")
+        sleep_period = int(typer.prompt("Sleep period (in seconds)"))
+
     section_name = "HrFlow API Config"
     seperator = "=" * ((100 - len(section_name))//2)
     typer.echo(seperator + section_name + seperator)
@@ -65,18 +72,20 @@ def local(max_workers: int = typer.Option(None)):
         )
     )
     #TODO refactor this part
-    parsing_results = send_batch_to_hrflow(client, source_key, filename_list, file_reference_list, max_workers)
+    parsing_results = send_batch_to_hrflow(client,
+                            source_key,
+                            filename_list,
+                            file_reference_list,
+                            multiprocess,
+                            sleep_period
+                        )
+    #parsing_results = send_batch_to_hrflow(client, source_key, filename_list, file_reference_list, max_workers)
 
     typer.echo("[Import Command][Parsing] Results")
     display_results(parsing_results)
 
     typer.echo("[Import Command] Finished in {:.1f}s".format(time.time() - start))
     typer.echo("=" * 100)
-    typer.echo(
-        "Pipelines logs written to disk at ./{}".format(
-            PIPELINES_LOGS_FILE.replace(config.STORAGE_DIRECTORY_PATH, "")
-        )
-    )
 
 if __name__ == "__main__":
     cli()

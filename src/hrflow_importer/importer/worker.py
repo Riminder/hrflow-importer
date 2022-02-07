@@ -1,4 +1,5 @@
 import re
+import time
 from pathlib import PosixPath
 import shutil
 from collections import Counter
@@ -48,23 +49,36 @@ def send_batch_to_hrflow(
     source_key,
     filename_list,
     file_reference_list,
+    multiprocess: typing.Optional[int] = 0,
+    sleep_period: typing.Optional[int] = 6,
     max_workers: typing.Optional[int] = None,
 ) -> Counter:
     results = Counter()
-    with tqdm(
-        total=len(filename_list), leave=False, desc="{:<30}".format("Sending Items to HrFlow"),
-    ) as progress_bar:
-        with ProcessPoolExecutor(
-            max_workers=max_workers,
-            #initializer=None,
-            mp_context=multiprocessing.get_context("spawn"),
-        ) as executor:
-            futures = [
-                executor.submit(send_file_to_hrflow, client, source_key, filename, file_reference)
-                for filename, file_reference in zip(filename_list, file_reference_list)
-            ]
-            for finished in as_completed(futures):
+    if multiprocess:
+        with tqdm(
+            total=len(filename_list), leave=False, desc="{:<30}".format("Sending Items to HrFlow"),
+        ) as progress_bar:
+            with ProcessPoolExecutor(
+                max_workers=max_workers,
+            ) as executor:
+                futures = [
+                    executor.submit(send_file_to_hrflow, client, source_key, filename, file_reference)
+                    for filename, file_reference in zip(filename_list, file_reference_list)
+                ]
+                for finished in as_completed(futures):
+                    progress_bar.update(1)
+                    results[finished.result()] += 1
+    else:
+        with tqdm(
+            total=len(filename_list), leave=False, desc="{:<30}".format("Sending Items to HrFlow"),
+        ) as progress_bar:
+            for filename, file_reference in zip(filename_list, file_reference_list):
+                progress_bar.set_description("Importing...")
+                result = send_file_to_hrflow(client, source_key, filename, file_reference)
+                progress_bar.set_description(f"Pause for {sleep_period} secs...")
+                time.sleep(sleep_period)
                 progress_bar.update(1)
-                results[finished.result()] += 1
+                results[result] += 1
+                
     return results
 
